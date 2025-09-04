@@ -1,12 +1,10 @@
 #version 400 core
 
-layout(location = 0) in aPos;
+layout(location = 0) in vec3 aPos;
 
 out vec2 vNDC;
-out vec2 vUv;
 
 void main() {
-    gl_position = vec4(aPos.xy, 1.0, 1.0);
+    gl_Position = vec4(aPos.xy, 0.0, 1.0);
     vNDC = aPos.xy;
-    vUv = vNDC * 0.5 + 0.5;
 }

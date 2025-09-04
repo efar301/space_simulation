@@ -23,7 +23,7 @@ namespace World {
 
 // simulation funsies
 namespace Funsies {
-    const int NUM_LIGHT_RAYS = 5000;
+    const int NUM_LIGHT_RAYS = 0;
 };  // namespace Funsies
 
 namespace LightConfig {

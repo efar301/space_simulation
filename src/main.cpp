@@ -49,10 +49,31 @@ std::vector<Vertex> bhVertices;
 std::vector<GLuint> bhIndices;
 
 std::vector<Vertex> rayTriangle = {
-    { glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec3(0,0,1), glm::vec3(1,1,1), glm::vec2(0.0f, 0.0f) },
-    { glm::vec3( 3.0f, -1.0f, 0.0f), glm::vec3(0,0,1), glm::vec3(1,1,1), glm::vec2(2.0f, 0.0f) },
-    { glm::vec3(-1.0f,  3.0f, 0.0f), glm::vec3(0,0,1), glm::vec3(1,1,1), glm::vec2(0.0f, 2.0f) },
+    {glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec3(0, 0, 1), glm::vec3(1, 1, 1), glm::vec2(0.0f, 0.0f)},
+    {glm::vec3(3.0f, -1.0f, 0.0f), glm::vec3(0, 0, 1), glm::vec3(1, 1, 1), glm::vec2(2.0f, 0.0f)},
+    {glm::vec3(-1.0f, 3.0f, 0.0f), glm::vec3(0, 0, 1), glm::vec3(1, 1, 1), glm::vec2(0.0f, 2.0f)},
 };
+
+void updateRays(Camera& camera, Shader& lightRayShader, Blackhole& bh) {
+    lightRayShader.Activate();
+    // camera info
+    glUniform1f(glGetUniformLocation(lightRayShader.ID, "fovY"), camera.fovY);
+    glUniform3fv(glGetUniformLocation(lightRayShader.ID, "camPos"), 1,
+                 glm::value_ptr(camera.Position));
+    glUniform3fv(glGetUniformLocation(lightRayShader.ID, "camFwd"), 1,
+                 glm::value_ptr(camera.Orientation));
+    glUniform3fv(glGetUniformLocation(lightRayShader.ID, "camRight"), 1,
+                 glm::value_ptr(glm::cross(camera.Orientation, camera.Up)));
+    glUniform3fv(glGetUniformLocation(lightRayShader.ID, "camUp"), 1, glm::value_ptr(camera.Up));
+    glUniform1f(glGetUniformLocation(lightRayShader.ID, "aspect"), float(width) / float(height));
+    glUniform1i(glGetUniformLocation(lightRayShader.ID, "maxSteps"), 300);
+    glUniform1f(glGetUniformLocation(lightRayShader.ID, "maxDist"), CameraConfig::FAR_DIST);
+    glUniform1f(glGetUniformLocation(lightRayShader.ID, "surfEps"), 0.001f);
+
+    // bh info
+    glUniform1f(glGetUniformLocation(lightRayShader.ID, "bhRadius"), bh.radius);
+    glUniform3fv(glGetUniformLocation(lightRayShader.ID, "bhPos"), 1, glm::value_ptr(bh.position));
+}
 
 int main() {
     // Initialize GLFW
@@ -83,7 +104,6 @@ int main() {
     // In this case the viewport goes from x = 0, y = 0, to x = 800, y = 800
 
     std::string parentDir = (fs::current_path().fs::path::parent_path()).string();
-    std::string texPath = "/resources/";
 
     std::string shaderPath = "/shaders/";
     // Generates Shader object using shaders default.vert and default.frag
@@ -112,17 +132,17 @@ int main() {
     rayVAO.Bind();
     VBO rayVBO(rayTriangle);
 
-    rayVAO.LinkAttrib(rayVBO, 0, 3, GL_FLOAT, sizeof(Vertex), (void*)0); // aPos
-    rayVAO.LinkAttrib(rayVBO, 1, 3, GL_FLOAT, sizeof(Vertex), (void*)(3 * sizeof(float))); // aNormal
-    rayVAO.LinkAttrib(rayVBO, 2, 3, GL_FLOAT, sizeof(Vertex), (void*)(6 * sizeof(float))); // aColor
-    rayVAO.LinkAttrib(rayVBO, 3, 2, GL_FLOAT, sizeof(Vertex), (void*)(9 * sizeof(float))); // aTex
+    rayVAO.LinkAttrib(rayVBO, 0, 3, GL_FLOAT, sizeof(Vertex), (void*)0);  // aPos
+    rayVAO.LinkAttrib(rayVBO, 1, 3, GL_FLOAT, sizeof(Vertex),
+                      (void*)(3 * sizeof(float)));  // aNormal
+    rayVAO.LinkAttrib(rayVBO, 2, 3, GL_FLOAT, sizeof(Vertex),
+                      (void*)(6 * sizeof(float)));  // aColor
+    rayVAO.LinkAttrib(rayVBO, 3, 2, GL_FLOAT, sizeof(Vertex), (void*)(9 * sizeof(float)));  // aTex
     rayVAO.Unbind();
     rayVBO.Unbind();
 
     Shader lightRayShader((parentDir + shaderPath + "screen_vert.glsl").c_str(),
-                     (parentDir + shaderPath + "raymarching_frag.glsl").c_str());
-
-
+                          (parentDir + shaderPath + "raymarching_frag.glsl").c_str());
 
     Mesh light(lightVerts, lightInd);
 
@@ -134,19 +154,6 @@ int main() {
     glm::vec3 objectPos = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::mat4 objectModel = glm::mat4(1.0f);
     objectModel = glm::translate(objectModel, objectPos);
-
-    lightShader.Activate();
-    glUniformMatrix4fv(glGetUniformLocation(lightShader.ID, "model"), 1, GL_FALSE,
-                       glm::value_ptr(lightModel));
-    glUniform4f(glGetUniformLocation(lightShader.ID, "lightColor"), lightColor.x, lightColor.y,
-                lightColor.z, lightColor.w);
-    shaderProgram.Activate();
-    glUniformMatrix4fv(glGetUniformLocation(shaderProgram.ID, "model"), 1, GL_FALSE,
-                       glm::value_ptr(objectModel));
-    glUniform4f(glGetUniformLocation(shaderProgram.ID, "lightColor"), lightColor.x, lightColor.y,
-                lightColor.z, lightColor.w);
-    glUniform3f(glGetUniformLocation(shaderProgram.ID, "lightPos"), lightPos.x, lightPos.y,
-                lightPos.z);
 
     generateVertices(BlackholeConfig::BLACK_HOLE_RADIUS, bhVertices, bhIndices);
     Blackhole bh(BlackholeConfig::BLACK_HOLE_ORIGIN_POS, BlackholeConfig::BLACK_HOLE_MASS,
@@ -167,23 +174,11 @@ int main() {
     // LightRay lr(lrPosition, lrDirection, 0.5f, lightVerts, lightInds);
 
     // Enables the Depth Buffer
-    glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_TEST);
 
     // Creates camera object
     Camera camera(width, height, glm::vec3(0.0f, 0.0f, 200.0f), 45.0f);
-
-
-    lightRayShader.Activate();
-    // camera info
-    glUniformMatrix4fv(glGetUniformLocation(lightRayShader.ID, "camMatrix"), 1, GL_FALSE, glm::value_ptr(camera.cameraMatrix));
-    glUniform1f(glGetUniformLocation(lightRayShader.ID, "fovY"), camera.fovY);
-    glUniform3fv(glGetUniformLocation(lightRayShader.ID, "camPos"), 1, glm::value_ptr(camera.Position));
-    glUniform1f(glGetUniformLocation(lightRayShader.ID, "farDist"), CameraConfig::FAR_DIST);
-
-    // bh info
-    glUniform1f(glGetUniformLocation(lightRayShader.ID, "bhRadius"), bh.radius);
-    glUniform3fv(glGetUniformLocation(lightRayShader.ID, "bhPos"), 1, glm::value_ptr(bh.position));
-
 
     double lastTime = glfwGetTime();
     double fpsTimer = lastTime;
@@ -219,14 +214,23 @@ int main() {
         // Updates and exports the camera matrix to the Vertex Shader
         camera.updateMatrix(camera.fovY, CameraConfig::CLOSE_DIST, CameraConfig::FAR_DIST);
 
+
+
+        glDisable(GL_DEPTH_TEST);
+        rayVAO.Bind();
+        updateRays(camera, lightRayShader, bh);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glEnable(GL_DEPTH_TEST);
+
+        // bh.draw(shaderProgram, camera);
+
         // Draws different meshes
         // floor.Draw(shaderProgram, camera);
         // light.Draw(lightShader, camera);
-        bh.draw(shaderProgram, camera);
-        // lr.draw(lightShader, camera);
-        for (int i = 0; i < Funsies::NUM_LIGHT_RAYS; ++i) {
-            lightRays[i].draw(lightShader, camera);
-        }
+
+        // for (int i = 0; i < Funsies::NUM_LIGHT_RAYS; ++i) {
+        //     lightRays[i].draw(lightShader, camera);
+        // }
 
         // Swap the back buffer with the front buffer
         glfwSwapBuffers(window);
@@ -237,6 +241,7 @@ int main() {
     // Delete all the objects we've created
     shaderProgram.Delete();
     lightShader.Delete();
+    lightRayShader.Delete();
     // Delete window before ending the program
     glfwDestroyWindow(window);
     // Terminate GLFW before ending the program
